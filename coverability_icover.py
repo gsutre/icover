@@ -1,4 +1,4 @@
-# Copyright 2017 Thomas Geffroy, Jérôme Leroux, Grégoire Sutre 
+# Copyright 2017 CNRS & Universite de Bordeaux
 
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.

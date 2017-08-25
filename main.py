@@ -1,4 +1,5 @@
-# Modifications Copyright (C) 2017 Thomas Geffroy, Jérôme Leroux, Grégoire Sutre 
+# Modifications Copyright 2017 CNRS & Universite de Bordeaux
+
 # Copyright 2017 Michael Blondin, Alain Finkel, Christoph Haase, Serge Haddad
 
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -12,6 +13,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+
 import argparse
 from petri import load_petrinet
 from coverability import coverability
