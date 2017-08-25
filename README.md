@@ -1,6 +1,6 @@
 # ICover
 
-ICover is a fork of [QCover](https://github.com/blondimi/qcover), a Python implementation of a decision procedure for the Petri net coverability problem.  ICover performs a backward coverability search that is pruned with the help of forward invariants.
+ICover is a fork of [QCover](https://github.com/blondimi/qcover), a Python implementation of a decision procedure for the Petri net coverability problem.  ICover performs a backward coverability search that is pruned with the help of forward invariants. Some preprocessings have been implemented to accelerate the computation.
 
 ## Installation, Usage and Input file format
 
