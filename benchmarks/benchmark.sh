@@ -40,8 +40,8 @@ do
 
 	# Obtain output and running time
 	if [ "$program" = "icover" ]; then
-	    (time (timeout $TIMEOUT python ../main.py $file limit --pre --omega)) 1> temp_output \
-	                                                                          2> temp_time
+	    (time (timeout $TIMEOUT python ../main.py $file limit --pre --omega | tail -1)) 1> temp_output \
+	                                                                                    2> temp_time
 	    output=$(cat temp_output)
 	elif [ "$program" = "qcover" ]; then
 	    (time (timeout $TIMEOUT python ../main.py $file qcover)) 1> temp_output \
