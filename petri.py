@@ -1,3 +1,4 @@
+# Modifications Copyright (C) 2017 Thomas Geffroy, Jérôme Leroux, Grégoire Sutre 
 # Copyright 2017 Michael Blondin, Alain Finkel, Christoph Haase, Serge Haddad
 
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -324,3 +325,188 @@ def transitions_postset(petrinet, places, reverse=False):
 
 def get_support(marking):
     return {p for p in range(len(marking)) if marking[p] > 0}
+
+
+
+
+#### functions for ICover:#######
+
+
+def get_transitions(petrinet):
+    
+    size = len(petrinet[0])
+    petrinetInput = petrinet[0].tolist()
+    petrinetOutput = petrinet[1].tolist()
+    nbTransitions = len(petrinetInput[0])
+
+    
+    transitions = []
+
+    for j in range(0,nbTransitions):
+        tinput = []
+        toutput = []
+        for i in range(0,size):
+            tinput.append(petrinetInput[i][j])
+        for i in range(0,size):
+            toutput.append(petrinetOutput[i][j])
+
+        transitions.append([tinput,toutput])
+
+    return transitions
+
+
+
+# sparse transitions: in(t) and out(t) are given.
+# The numbers of tokens used by the transition is not given 
+def get_transitions_sparse(petrinet):
+    
+    size = len(petrinet[0])
+    petrinetInput = petrinet[0].tolist()
+    petrinetOutput = petrinet[1].tolist()
+    nbTransitions = len(petrinetInput[0])
+
+    
+    transitions = []
+
+    for j in range(0,nbTransitions):
+        tinput = []
+        toutput = []
+        for i in range(0,size):
+            
+            if petrinetInput[i][j] > 0:
+                tinput.append(i)
+            if petrinetOutput[i][j] > 0:
+                toutput.append(i)
+                      
+        transitions.append([tinput,toutput])
+
+
+    return transitions
+
+
+
+
+def str_place(p):
+    return "p"+str(p)
+
+
+# it can be a target or init
+def print_list_of_tuples(tuples,size):
+    tuples_str_list = []
+    for p in range(size):
+        tuples_str_list.append("")
+
+    for p in range(size):        
+        tuples_str_list[p] = str_place(p) + " " + tuples[p][0] + " " + str(tuples[p][1])
+    tuples_str = "   "
+    for r in range(len(tuples_str_list)-1):
+        tuples_str += tuples_str_list[r] + ","
+
+    tuples_str += tuples_str_list[len(tuples_str_list)-1] + "\n"
+
+    return tuples_str
+
+# print in filename petrinet. Used after pre-processing.
+def python_to_spec(petrinet,init,targets,filename):
+    spec_str = ""
+    print petrinet
+    print init
+    print targets
+    
+    nb_places = petrinet[0].shape[0]
+    nb_transitions = petrinet[0].shape[1]
+    
+    print nb_places
+    print nb_transitions
+
+    # print places
+    spec_str = "vars\n"
+    for p in range(nb_places):
+        spec_str += str_place(p)+" "
+
+    print spec_str
+
+    # print transitions
+    spec_str += "\nrules\n"
+    transitions = get_transitions(petrinet) 
+    for transition in transitions:
+        pre,post = transition
+        # is it useful ?
+        useful_transition = False
+        for p in range(nb_places):
+            if post[p] > 0:
+                useful_transition = True
+                break
+        
+        if not useful_transition:
+            continue
+
+        # build the pre rule
+        pre_rule_list = []        
+        for p in range(nb_places):
+            token_pre = pre[p]
+            if token_pre > 0:
+                # example: pi >= 2
+                pre_rule_list.append(str_place(p) + ">=" + str(token_pre))
+                
+        pre_rule_str = ""
+        for r in range(len(pre_rule_list)-1):
+            pre_rule_str += pre_rule_list[r] + ",\n"
+
+        pre_rule_str += pre_rule_list[len(pre_rule_list)-1] + "\n"
+        print "rule pre", pre_rule_str
+
+        # build the post rule
+        # we firt build effect such if t = 2p1 -> p1 + p2 we have effect[p1] = -1
+        effect = []
+        for p in range(nb_places):
+            effect.append(0)
+            
+        for p in range(nb_places):
+            effect[p] = post[p] - pre[p]
+
+
+    
+        print effect
+        effect_rule_list = []
+        for p in range(nb_places):
+            if not (effect[p] == 0):
+                # example: pi' = pi + 1
+                effect_rule = str_place(p) + "' = " + str_place(p)
+                if effect[p] > 0:
+                    effect_rule += " + " + str(effect[p])
+                else:
+                    effect_rule += " - " + str(-effect[p])
+                    
+                effect_rule_list.append(effect_rule)
+                
+        effect_rule_str = ""
+        for r in range(len(effect_rule_list)-1):
+            effect_rule_str += effect_rule_list[r] + ",\n"
+
+        print effect_rule_list
+        effect_rule_str += effect_rule_list[len(effect_rule_list)-1]
+        print "rule effect", effect_rule_str
+
+        rule_str = pre_rule_str + "-> \n" + effect_rule_str  + ";\n"
+
+        print rule_str
+        spec_str += rule_str
+
+
+    # init
+    spec_str += "init\n"    
+
+    spec_str += print_list_of_tuples(init,nb_places)
+
+    # target(s)
+    spec_str += "\ntarget\n"
+    for target in targets:
+        spec_str += print_list_of_tuples(target,nb_places)
+        
+    print "*************"
+    print spec_str
+
+    file_spec = open(filename,"w+")
+
+    file_spec.write(spec_str)
