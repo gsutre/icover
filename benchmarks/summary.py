@@ -1,3 +1,5 @@
+# Modifications Copyright 2017 CNRS & Universite de Bordeaux
+
 # Copyright 2017 Michael Blondin, Alain Finkel, Christoph Haase, Serge Haddad
 
 # Licensed under the Apache License, Version 2.0 (the "License");
