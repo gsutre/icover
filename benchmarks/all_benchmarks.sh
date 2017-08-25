@@ -1,6 +1,6 @@
 #!/bin/bash
 
-TOOLS="tacas petrinizer mist-backward bfc"
+TOOLS="icover qcover petrinizer mist-backward bfc"
 
 for tool in $TOOLS
 do

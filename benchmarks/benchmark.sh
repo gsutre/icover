@@ -1,8 +1,8 @@
 #!/bin/bash
 
 TIMEFORMAT="%U %S" # Important: %User time + %System time
-DIRECTORIES="mist wahl-kroening medical bug_tracking soter"
-TIMEOUT=2000
+: ${DIRECTORIES:="mist wahl-kroening medical bug_tracking soter"}
+: ${TIMEOUT:=2000}
 
 function echo_time {
     echo "[$(date +"%H:%M:%S")] $1 $2 $3 $4 $5 $6"
@@ -10,7 +10,7 @@ function echo_time {
 
 # Arguments
 if [ "$1" = "" ]; then
-    program="tacas"
+    program="icover"
 else
     program=$1
 fi
@@ -19,6 +19,7 @@ fi
 for dir in $DIRECTORIES
 do
     files=$(find ./$dir -type f -name "*.spec") # .spec of all subdirectories
+    mkdir -p $dir/results
     logfile=./$dir/results/$program.log
 
     cp $logfile $logfile".bak" 2> /dev/null
@@ -38,9 +39,13 @@ do
 	echo_time " Verifying $file..."
 
 	# Obtain output and running time
-	if [ "$program" = "tacas" ]; then
-	    (time (timeout $TIMEOUT python ../main.py $file)) 1> temp_output \
-	                                                      2> temp_time
+	if [ "$program" = "icover" ]; then
+	    (time (timeout $TIMEOUT python ../main.py $file limit --pre --omega)) 1> temp_output \
+	                                                                          2> temp_time
+	    output=$(cat temp_output)
+	elif [ "$program" = "qcover" ]; then
+	    (time (timeout $TIMEOUT python ../main.py $file qcover)) 1> temp_output \
+	                                                             2> temp_time
 	    output=$(cat temp_output)
 	elif [ "$program" = "mist-backward" ]; then
 	    (time (timeout $TIMEOUT mist --backward $file)) 1> temp_output \

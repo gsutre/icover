@@ -95,7 +95,7 @@ if __name__ == "__main__":
                 default="all", help="all: output summary for all results. overall: output overall results.")
 
     parser.add_argument("--tool", dest="tool", action="store",
-                default="tacas", help="tacas, petrinizer, mist-backward, bfc.")
+                default="icover", help="icover, qcover, petrinizer, mist-backward, bfc.")
 
     args = parser.parse_args()
     
