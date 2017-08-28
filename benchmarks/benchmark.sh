@@ -15,6 +15,12 @@ else
     program=$1
 fi
 
+# Check that temporary files are not already in use
+if [ -e temp_output -o -e temp_time ]; then
+    echo "Existing temporary file(s). Is another benchmark.sh running?" >&2
+    exit 1
+fi
+
 # Perform benchmarks
 for dir in $DIRECTORIES
 do
@@ -22,8 +28,7 @@ do
     mkdir -p $dir/results
     logfile=./$dir/results/$program.log
 
-    cp $logfile $logfile".bak" 2> /dev/null
-    > $logfile # Clear logs file
+    [ -e $logfile ] && mv $logfile $logfile.bak # Backup and clear logs file
 
     echo_time "### Processing" $dir "###"
 
@@ -77,7 +82,7 @@ do
 	    output="Timeout"
 	    elapsed=$((1000*$TIMEOUT))
 	else
-	    elapsed=$(cat temp_time | awk '{print 1000*($1+$2);}')	    
+	    elapsed=$(cat temp_time | awk '{print 1000*($1+$2);}')
 	fi
 
 	# Clear temporary files
