@@ -87,13 +87,13 @@ do
 	    output=$(python parse_output.py temp_output --tool $program)
 	fi
 
-	# Process timing
+	# An empty output should come from a timeout
 	if [ "$output" = "" ]; then
 	    output="Timeout"
-	    elapsed=$((1000*$TIMEOUT))
-	else
-	    elapsed=$(cat temp_time | awk '{print 1000*($1+$2);}')
 	fi
+
+	# Process timing
+	elapsed=$(cat temp_time | awk '{print 1000*($1+$2);}')
 
 	# Clear temporary files
 	rm temp_output temp_time
