@@ -66,7 +66,7 @@ def main(path,pre,mode):
     else:
         print "wrong mode"
         print "choose qcover, limit or comp"
-        exit(0)
+        exit(2)
 
     if result is None:
         print 'Unknown'
@@ -105,7 +105,7 @@ if __name__ == '__main__':
     
     if (not args.pre) and args.omega:
         print "The pre-processessing of omega places is not possible without --pre"
-        exit(0)
+        exit(2)
     
     set_omega(args.omega) # set if we perform the pre-processing with omega places
 
