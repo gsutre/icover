@@ -78,8 +78,9 @@ def summary(directories, mode, tool):
 
         with open(directories[i] + filename) as file_content:
             for row in file_content:
-                args = row.strip().split(" ")
-                res.append((args[0], args[1], int(args[2])))
+                if not row.strip().startswith("#"):
+                    args = row.strip().split(" ")
+                    res.append((args[0], args[1], int(args[2])))
 
         if res:
             results.append(res)
