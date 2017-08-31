@@ -16,120 +16,288 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-TIMEFORMAT="%U %S" # Important: %User time + %System time
-: ${DIRECTORIES:="mist wahl-kroening medical bug_tracking soter"}
-: ${TIMEOUT:=2000}
+self="$(basename "$0")"
 
-function echo_time {
-    echo "[$(date +"%H:%M:%S")] $1 $2 $3 $4 $5 $6"
+# Configuration Variables ######################################################
+
+# Default list of directories to benchmark.
+DIRECTORIES="mist wahl-kroening medical bug_tracking soter"
+
+# Default timeout in seconds (max CPU time) for each run.
+TIMEOUT=2000
+
+# No extra option by default.
+OPTIONS=""
+
+# Default verbosity level.
+VERBOSITY=1
+
+# No file is skipped by default.
+SKIP=0
+
+
+# Helper functions #############################################################
+
+error ()
+{
+    echo "$self: error: $1" >&2
 }
 
-# Arguments
-if [ "$1" = "" ]; then
-    program="icover"
-else
-    program=$1
-fi
+#
+# Log a message unless the given level (fist argument) is larger than the chosen
+# VERBOSITY level.
+#
+log ()
+{
+    level=$1
+    shift
+    if [ $level -le $VERBOSITY ]; then
+	echo -e "[$(date +"%H:%M:%S")]" "$(printf '%*s' $((2*level)))" "$*"
+    fi
+}
 
-# Check that temporary files are not already in use
-if [ -e temp_output -o -e temp_time ]; then
-    echo "Existing temporary file(s). Is another benchmark.sh running?" >&2
+#
+# Run a given command with timeout $TIMEOUT and store the results into temporary
+# files:
+# - $tmp_err:  the error output of the command
+# - $tmp_out:  the standard output of the command
+# - $tmp_time: the time statistics
+# The time format "%U %S" stands for %User time + %System time.
+#
+run_cmd ()
+{
+    log 2 "Command:" "$*"
+    \time --quiet -o "$tmp_time" -f "%U %S" \
+	\timeout $TIMEOUT \
+	$* 1> "$tmp_out" 2> "$tmp_err"
+}
+
+
+# Command-line Processing ######################################################
+
+usage ()
+{
+    cat <<EOF
+Usage: $self [options] <program>
+
+  -d <lst>    Set the list of directories to benchmark.
+  -h          Print this message and exit.
+  -q          Decrease verbosity.
+  -s <int>    Skip the first <int> files of each benchmark directory.
+  -t <int>    Set the (CPU) timeout to <int> for each run.
+  -v          Increase verbosity.
+  -x <opt>    Append <opt> to the options passed to the program.
+EOF
+}
+
+while getopts "d:hqs:t:vx:" option; do
+    case $option in
+	d)
+	    DIRECTORIES="$OPTARG"
+	    ;;
+	h)
+	    usage
+	    exit 0
+	    ;;
+	q)
+	    VERBOSITY=$((VERBOSITY-1))
+	    ;;
+	s)
+	    SKIP="$OPTARG"
+	    ;;
+	t)
+	    TIMEOUT="$OPTARG"
+	    ;;
+	v)
+	    VERBOSITY=$((VERBOSITY+1))
+	    ;;
+	x)
+	    OPTIONS="$OPTIONS $OPTARG"
+	    ;;
+	*)
+	    usage
+	    exit 1
+	    ;;
+    esac
+done
+
+shift $(($OPTIND - 1))
+
+program="$1"
+shift
+
+if [ $# -gt 0 ]; then
+    error "unrecognized arguments: $*."
     exit 1
 fi
 
-# Perform benchmarks
+if ! [[ "$SKIP" =~ ^[0-9]+$ ]]; then
+    error "the argument \`$SKIP' of the \`-s' option should be an integer."
+    exit 1
+fi
+
+if ! [[ "$TIMEOUT" =~ ^[0-9]+$ ]]; then
+    error "the argument \`$TIMEOUT' of the \`-t' option should be an integer."
+    exit 1
+fi
+
+# Allow an empty program with empty options as a shortcut for icover with limit
+# engine and options --pre --omega.
+if [ -z "$program" ]; then
+    if [ -z "$OPTIONS" ]; then
+	program="limit"
+	OPTIONS="--pre --omega"
+    else
+	usage
+	exit 1
+    fi
+fi
+
+
+# Auto-configuration and checks ################################################
+
+# Sanitize the environment to help reproducibility.
+export LC_ALL=C
+
+# Check for GNU time.
+if ! \time --version 2>&1 | grep -q "GNU time"; then
+    error "couldn't find GNU time."
+    exit 1
+fi
+
+# Check for GNU timeout.
+if ! \timeout --version 2>&1 | grep -q "GNU coreutils"; then
+    error "couldn't find GNU timeout."
+    exit 1
+fi
+
+# Log file base name.
+logbase="$program$(echo $OPTIONS | tr -d '[:space:]')"
+
+# Temporary files.
+tmp_err="tmp_err_$logbase"
+tmp_out="tmp_out_$logbase"
+tmp_time="tmp_time_$logbase"
+
+# Check that temporary files are not already in use.
+if [ -e "$tmp_err" -o -e "$tmp_out" -o -e "$tmp_time" ]; then
+    error "existing temporary file(s). Is another benchmark.sh running?"
+    exit 1
+fi
+
+
+# Main #########################################################################
+
+# Exit on SIGINT.
+trap "exit" SIGINT
+
+# Clear temporary files on exit.
+trap "rm -f \"$tmp_err\" \"$tmp_out\" \"$tmp_time\"" EXIT
+
+# Perform benchmarks.
 for dir in $DIRECTORIES
 do
-    files=$(find ./$dir -type f -name "*.spec") # .spec of all subdirectories
-    mkdir -p $dir/results
-    logfile=./$dir/results/$program.log
+    files=$(find "$dir" -type f -name "*.spec") # .spec of all subdirectories
+    mkdir -p "$dir"/results
+    logfile="$dir"/results/"$logbase".log
 
-    [ -e $logfile ] && mv $logfile $logfile.bak # Backup and clear logs file
+    # Backup and clear log file.
+    if [ -e "$logfile" ]; then
+	mv "$logfile" "$logfile".bak
+    fi
+    touch "$logfile"
 
-    echo_time "### Processing" $dir "###"
+    log 0 "### Processing $dir (log file: $logfile) ###"
 
-    skip=1
+    skipped=0
     for file in $files
     do
-	if [ "$skip" -lt "0" ]; then
-	    echo_time " Skiping $file."
-	    skip=$(($skip+1))
+	if [ $skipped -lt $SKIP ]; then
+	    log 0 "Skipping $file."
+	    skipped=$(($skipped+1))
 	    continue
 	fi
 
-	echo_time " Verifying $file..."
+	log 0 "Verifying $file..."
 
-	# Obtain output and running time
-	if [ "$program" = "icover" ]; then
-	    (time (timeout $TIMEOUT python ../main.py $file limit --pre --omega | tail -1)) 1> temp_output \
-	                                                                                    2> temp_time
-	    if [ "$?" -ne 0 ]; then
-		echo_time " Tool error ($program)" >&2
-		cat temp_time
+	# Obtain error and standard outputs, time statistics, and exit status.
+	case "$program" in
+	    limit)
+		run_cmd python ../main.py $file limit $OPTIONS
+		status=$?
+		;;
+	    qcover)
+		run_cmd python ../main.py $file qcover $OPTIONS
+		status=$?
+		;;
+	    mist-backward)
+		run_cmd mist --backward $OPTIONS $file
+		status=$?
+		;;
+	    petrinizer)
+		run_cmd ../petrinizer/src/main -refinement-int $OPTIONS $file.pl
+		status=$?
+		# Generate $tmp_out according to the exit status.
+		if [ $status -eq 0 ]; then
+		    echo "Safe" > "$tmp_out"
+		elif [ $status -eq 1 ]; then
+		    echo "Unsafe" > "$tmp_out"
+		else
+		    echo "Unknown" > "$tmp_out"
+		fi
+		status=0
+		;;
+	    bfc)
+		run_cmd ../bfc/bfc --target $file.tts.prop $OPTIONS $file.tts
+		status=$?
+		;;
+	    *)
+		error "unknown program: $program."
 		exit 1
-	    fi
-	    output=$(cat temp_output)
-	elif [ "$program" = "qcover" ]; then
-	    (time (timeout $TIMEOUT python ../main.py $file qcover)) 1> temp_output \
-	                                                             2> temp_time
-	    if [ "$?" -ne 0 ]; then
-		echo_time " Tool error ($program)" >&2
-		cat temp_time
-		exit 1
-	    fi
-	    output=$(cat temp_output)
-	elif [ "$program" = "mist-backward" ]; then
-	    (time (timeout $TIMEOUT mist --backward $file)) 1> temp_output \
-	                                                    2> temp_time
-	    output=$(python parse_output.py temp_output --tool $program)
-	elif [ "$program" = "petrinizer" ]; then
-	    (time (timeout $TIMEOUT ../petrinizer/src/main \
-		              -refinement-int $file.pl)) 1> temp_output \
-	                                                 2> temp_time
-	    result=$?
-	    if [ "$result" = "0" ]; then
-		output="Safe"
-	    elif [ "$result" = "1" ]; then
-		output="Unsafe"
-	    elif [ "$result" = "2" ]; then
-		output="Unknown"
-	    fi
-	elif [ "$program" = "bfc" ]; then
-	    (time (timeout $TIMEOUT ../bfc/bfc --target $file.tts.prop \
-		                               $file.tts)) 1> temp_output \
-	                                                   2> temp_time
+		;;
+	esac
 
-	    tail -n 1 temp_time > temp_time.tail && mv temp_time.tail temp_time
-	    output=$(python parse_output.py temp_output --tool $program)
-	fi
+	log 3 "Standard output:\n$(cat "$tmp_out")"
+	log 3 "Error output:\n$(cat "$tmp_err")"
+	log 3 "Time output:\n$(cat "$tmp_time")"
 
-	# An empty output should come from a timeout
-	if [ "$output" = "" ]; then
+	# Compute the output.
+	if [ $status -eq 124 ]; then
 	    output="Timeout"
+	elif [ $status -ne 0 ]; then
+	    output="Error"
+	else
+	    case "$program" in
+		limit|qcover|petrinizer)
+		    output="$(tail -n 1 "$tmp_out")"
+		    ;;
+		*)
+		    output="$(python parse_output.py "$tmp_out" --tool "$program")"
+		    ;;
+	    esac
 	fi
 
-	# Process timing
-	elapsed=$(cat temp_time | awk '{print 1000*($1+$2);}')
+	# Compute the elapsed CPU time.
+	elapsed=$(cat "$tmp_time" | awk '{print 1000*($1+$2);}')
 
-	# Clear temporary files
-	rm temp_output temp_time
+	# Log the result and time.
+	log 1 "Result: $output"
+	log 1 "Time:   $elapsed ms"
 
-	# Outputs
-	echo_time "   Result:" $output          # Console ouput
-	echo_time "   Time:  " $elapsed "ms"    #
-
-	echo $file $output $elapsed >> $logfile # Logs output
+	# Store output and time into the log file.
+	echo $file $output $elapsed >> "$logfile"
     done
 
-    # Print directory summary
-    echo_time " Summary:"
-    python summary.py $dir --tool $program
+    # Print directory summary.
+    log 1 "Summary:\n$(python summary.py "$dir" --tool "$logbase")"
 done
 
-# Print overall summary if more than one directory
+# Print overall summary if more than one directory.
 list=( $DIRECTORIES )
 
 if [ "${#list[@]}" -gt "1" ]; then
-    echo_time "### Overall summary ###"
-    python summary.py $DIRECTORIES --mode overall --tool $program
+    log 1 "### Overall summary ###\n$(python summary.py $DIRECTORIES \
+	--mode overall --tool "$logbase")"
 fi
+
+exit

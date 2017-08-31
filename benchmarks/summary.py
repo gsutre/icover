@@ -63,10 +63,11 @@ def output_summary(results):
     print ""
     print "* Results *"
     print ""
-    print "Safe:    {:>4}/{}".format(status.count("Safe"),    nb_results) 
-    print "Unsafe:  {:>4}/{}".format(status.count("Unsafe"),  nb_results) 
-    print "Unknown: {:>4}/{}".format(status.count("Unknown"), nb_results) 
-    print "Timeout: {:>4}/{}".format(status.count("Timeout"), nb_results) 
+    print "Safe:    {:>4}/{}".format(status.count("Safe"),    nb_results)
+    print "Unsafe:  {:>4}/{}".format(status.count("Unsafe"),  nb_results)
+    print "Unknown: {:>4}/{}".format(status.count("Unknown"), nb_results)
+    print "Timeout: {:>4}/{}".format(status.count("Timeout"), nb_results)
+    print "Error:   {:>4}/{}".format(status.count("Error"),   nb_results)
 
 def summary(directories, mode, tool):
     results = []
@@ -80,7 +81,12 @@ def summary(directories, mode, tool):
                 args = row.strip().split(" ")
                 res.append((args[0], args[1], int(args[2])))
 
-        results.append(res)
+        if res:
+            results.append(res)
+
+    if not results:
+        print "* No result *"
+        return
 
     if mode == "overall":
         output_summary([item for r in results for item in r])
@@ -93,7 +99,7 @@ if __name__ == "__main__":
 
     parser.add_argument("directories", metavar="Directories",
                         type=str, nargs="+")
-    
+
     parser.add_argument("--mode", dest="mode", action="store",
                 default="all", help="all: output summary for all results. overall: output overall results.")
 
@@ -101,5 +107,5 @@ if __name__ == "__main__":
                 default="icover", help="icover, qcover, petrinizer, mist-backward, bfc.")
 
     args = parser.parse_args()
-    
+
     summary(args.directories, args.mode, args.tool)
