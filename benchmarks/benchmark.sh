@@ -284,7 +284,7 @@ do
 	fi
 
 	# Compute the elapsed CPU time.
-	elapsed=$(cat "$tmp_time" | awk '{print 1000*($1+$2);}')
+	elapsed=$(cat "$tmp_time" | awk '{printf "%d", 1000*($1+$2);}')
 
 	# Log the result and time.
 	log 1 "Result: $output"
