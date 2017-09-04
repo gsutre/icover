@@ -197,7 +197,8 @@ trap "rm -f \"$tmp_err\" \"$tmp_out\" \"$tmp_time\"" EXIT
 # Perform benchmarks.
 for dir in $DIRECTORIES
 do
-    files=$(find "$dir" -type f -name "*.spec") # .spec of all subdirectories
+    # Get the *.spec files of all subdirectories
+    files=$(find "$dir" -type f -name "*.spec" | sort)
     mkdir -p "$dir"/results
     logfile="$dir"/results/"$logbase".log
 
@@ -219,45 +220,46 @@ do
 	fi
 
 	log 0 "Verifying $file..."
+	unset output
 
 	# Obtain error and standard outputs, time statistics, and exit status.
 	case "$program" in
-	    limit)
-		run_cmd python ../main.py $file limit $OPTIONS
+	    limit|hfifos|hstacks|qcover)
+		run_cmd python ../main.py $file $program $OPTIONS
 		status=$?
-		;;
-	    hfifos)
-		run_cmd python ../main.py $file hfifos $OPTIONS
-		status=$?
-		;;
-	    hstacks)
-		run_cmd python ../main.py $file hstacks $OPTIONS
-		status=$?
-		;;
-	    qcover)
-		run_cmd python ../main.py $file qcover $OPTIONS
-		status=$?
+		output="$(tail -n 1 "$tmp_out")"
 		;;
 	    mist-backward)
 		run_cmd mist --backward $OPTIONS $file
 		status=$?
+		# Compute output according to standard output.
+		output="$(sed -n -e 's/backward algorithm concludes \(.\)/\U\1/p' "$tmp_out")"
 		;;
 	    petrinizer)
 		run_cmd ../petrinizer/src/main -refinement-int $OPTIONS $file.pl
 		status=$?
-		# Generate $tmp_out according to the exit status.
-		if [ $status -eq 0 ]; then
-		    echo "Safe" > "$tmp_out"
-		elif [ $status -eq 1 ]; then
-		    echo "Unsafe" > "$tmp_out"
-		else
-		    echo "Unknown" > "$tmp_out"
+		# Compute output according to exit status and standard output.
+		if [ $status -eq 0 ] && \
+		    grep -q 'The petri net satisfies the property' "$tmp_out"; then
+		    output="Safe"
+		elif [ $status -eq 2 ] && \
+		    grep -q 'The petri net may not satisfy the property' "$tmp_out"; then
+		    output="Unknown"
+		    status=0
 		fi
-		status=0
 		;;
 	    bfc)
 		run_cmd ../bfc/bfc --target $file.tts.prop $OPTIONS $file.tts
 		status=$?
+		# Compute output according to exit status and standard output.
+		if [ $status -eq 0 ] && \
+		    grep -q 'VERIFICATION SUCCESSFUL' "$tmp_out"; then
+		    output="Safe"
+		elif [ $status -eq 10 ] && \
+		    grep -q 'VERIFICATION FAILED' "$tmp_out"; then
+		    output="Unsafe"
+		    status=0
+		fi
 		;;
 	    *)
 		error "unknown program: $program."
@@ -269,20 +271,16 @@ do
 	log 3 "Error output:\n$(cat "$tmp_err")"
 	log 3 "Time output:\n$(cat "$tmp_time")"
 
-	# Compute the output.
+	# Detect timeouts and errors.
 	if [ $status -eq 124 ]; then
 	    output="Timeout"
 	elif [ $status -ne 0 ]; then
 	    output="Error"
-	else
-	    case "$program" in
-		limit|hfifos|hstacks|qcover|petrinizer)
-		    output="$(tail -n 1 "$tmp_out")"
-		    ;;
-		*)
-		    output="$(python parse_output.py "$tmp_out" --tool "$program")"
-		    ;;
-	    esac
+	fi
+
+	# Check that output has been computed.
+	if [ -z "$output" ]; then
+	    error "unable to compute output."
 	fi
 
 	# Compute the elapsed CPU time.
