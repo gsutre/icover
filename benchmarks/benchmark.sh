@@ -226,6 +226,14 @@ do
 		run_cmd python ../main.py $file limit $OPTIONS
 		status=$?
 		;;
+	    hfifos)
+		run_cmd python ../main.py $file hfifos $OPTIONS
+		status=$?
+		;;
+	    hstacks)
+		run_cmd python ../main.py $file hstacks $OPTIONS
+		status=$?
+		;;
 	    qcover)
 		run_cmd python ../main.py $file qcover $OPTIONS
 		status=$?
@@ -268,7 +276,7 @@ do
 	    output="Error"
 	else
 	    case "$program" in
-		limit|qcover|petrinizer)
+		limit|hfifos|hstacks|qcover|petrinizer)
 		    output="$(tail -n 1 "$tmp_out")"
 		    ;;
 		*)

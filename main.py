@@ -22,11 +22,10 @@ from coverability import coverability
 from solver_icover import *
 from petri import get_transitions
 from preprocessing import pre_processing, set_omega
-from coverability_icover import limit_coverability,comparable_coverability
+from coverability_icover import limit_coverability,comparable_coverability, limit_coverability_exploration_heuristic
 
 
 import time
-    
 
 
 def main(path,pre,mode):
@@ -63,9 +62,13 @@ def main(path,pre,mode):
         result = limit_coverability(petrinet, init, targets, prune=True,max_iter=None)
     elif mode  == "comp":
         result = comparable_coverability(petrinet, init, targets,prune=True,max_iter=None)
+    elif mode == "hfifos":
+        result =  limit_coverability_exploration_heuristic(petrinet, init, targets, "fifos",prune=True,max_iter=None)
+    elif mode == "hstacks":
+        result =  limit_coverability_exploration_heuristic(petrinet, init, targets, "stacks",prune=True,max_iter=None)
     else:
         print "wrong mode"
-        print "choose qcover, limit or comp"
+        print "choose qcover, limit or comp, hfifos or hstacks"
         exit(2)
 
     if result is None:
@@ -98,8 +101,13 @@ if __name__ == '__main__':
     parser.add_argument('mode', type=str,default="",
                         help="""mode for the backward coverability algorithm:\n
                         limit (for limit-reachability invariant of ICover),
-                        qcover (for continous invariant of QCover)
-                        or comp (for comparison of pruning between the two)""")
+                        qcover (for continous invariant of QCover),
+                        comp (for comparison of pruning between the two),
+						 hfifos (heuristique: for changing the order of the computation
+                        based on an array of priority fifos)
+                        hstack (heuristique: for changing the order of the computation
+                        based on an array of priority stacks)
+						""")
 
     args = parser.parse_args()
     
