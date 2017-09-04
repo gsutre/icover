@@ -67,7 +67,7 @@ log ()
 run_cmd ()
 {
     log 2 "Command:" "$*"
-    \time --quiet -o "$tmp_time" -f "%U %S" \
+    \time -o "$tmp_time" -f "%U %S" \
 	\timeout $TIMEOUT \
 	$* 1> "$tmp_out" 2> "$tmp_err"
 }
@@ -284,7 +284,7 @@ do
 	fi
 
 	# Compute the elapsed CPU time.
-	elapsed=$(cat "$tmp_time" | awk '{printf "%d", 1000*($1+$2);}')
+	elapsed=$(tail -n 1 "$tmp_time" | awk '{printf "%d", 1000*($1+$2);}')
 
 	# Log the result and time.
 	log 1 "Result: $output"
