@@ -129,7 +129,7 @@ def coverability(petrinet, init, targets, prune=False, max_iter=None):
     init_marking = _omega_marking(init)
     basis = {tuple(constraint_vector(m)) for m in targets}
     precomputed = {}
-    covered = False
+    covered = in_upward(init_marking, basis)    
     num_iter = 0
 
     while not covered:
