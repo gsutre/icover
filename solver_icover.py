@@ -59,7 +59,7 @@ def build_limit_solver(transitions,init):
 
     for place in range(dimension):
         if not init[place][0] == ">=":
-            if not delta(transitions[0],place) == 0:
+            if len(transitions) > 0 and not delta(transitions[0],place) == 0:
                 sum_vector = init[place][1] + x_variables[0]*delta(transitions[0],place)
             else:
                 sum_vector = init[place][1]
